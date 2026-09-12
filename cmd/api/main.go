@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/Rajit-Dutta/go-redis-url-shortener/internal/handlers"
+	"github.com/Rajit-Dutta/go-redis-url-shortener/cmd/internal/handlers"
 )
 
 func main() {
