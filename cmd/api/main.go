@@ -38,4 +38,7 @@ func main() {
 
 	logger := slog.New(loggerHandler)
 	slog.SetDefault(logger)
+
+	//Setting up env
+	//cfg := config.MustLoad()
 }
