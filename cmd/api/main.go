@@ -7,13 +7,17 @@ import (
 	"os"
 	"time"
 
+	"github.com/Rajit-Dutta/go-redis-url-shortener/cmd/internal/config"
 	"github.com/Rajit-Dutta/go-redis-url-shortener/cmd/internal/handlers"
 )
 
 func main() {
+	//Setting up env
+	cfg := config.MustLoad()
+
 	//Setting up the server
 	server := http.Server{
-		Addr: ":8000",
+		Addr: ":" + cfg.Port,
 		//Handler: handler,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 20 * time.Second,
@@ -38,7 +42,4 @@ func main() {
 
 	logger := slog.New(loggerHandler)
 	slog.SetDefault(logger)
-
-	//Setting up env
-	//cfg := config.MustLoad()
 }
