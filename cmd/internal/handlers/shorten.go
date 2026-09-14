@@ -23,10 +23,6 @@ type response struct {
 	XRateLimitReset time.Duration `json:"rate_limit_rest"`
 }
 
-func ResolveURL(w http.ResponseWriter, r *http.Request) {
-
-}
-
 func ShortenURL(w http.ResponseWriter, r *http.Request) {
 	var req request
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
