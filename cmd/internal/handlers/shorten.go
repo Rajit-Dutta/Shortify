@@ -99,5 +99,23 @@ func ShortenURL(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "Unable to connect to server", "cannot_connect_to_server")
 	}
 
+	resp := response{
+		URL:             req.URL,
+		CustomShort:     "",
+		Expiry:          req.Expiry,
+		XRateRemaining:  10,
+		XRateLimitReset: 30,
+	}
+
 	r2.Decr(db.Ctx, host)
+
+	val, _ = r2.Get(db.Ctx, host).Result()
+	resp.XRateRemaining, _ = strconv.Atoi(val)
+
+	ttl, _ := r2.TTL(db.Ctx, host).Result()
+	resp.XRateLimitReset = ttl / time.Nanosecond / time.Minute
+
+	resp.CustomShort = config.MustLoad().Domain + "/" + id
+
+	return
 }
