@@ -7,7 +7,7 @@ COPY internal ./internal
 RUN go build -o main ./cmd/api
 
 FROM alpine
-RUN adduser -S -D -H appuser
+RUN adduser -S -D -H -h appuser
 USER appuser
 WORKDIR /app
 COPY --from=builder /build/main /app/main
