@@ -90,7 +90,7 @@ func ShortenURL(w http.ResponseWriter, r *http.Request) {
 	defer r3.Close()
 
 	val, _ = r3.Get(db.Ctx, id).Result()
-	if val == "" {
+	if val != "" {
 		httpx.Error(w, http.StatusBadRequest, "URL custom short is already in use", "url_short_in_use")
 		return
 	}
@@ -117,5 +117,6 @@ func ShortenURL(w http.ResponseWriter, r *http.Request) {
 
 	resp.CustomShort = config.MustLoad().Domain + "/" + id
 
-	return
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }

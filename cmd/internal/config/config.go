@@ -32,7 +32,7 @@ func MustLoad() config {
 	if db == "" {
 		panic("DB_ADDR is required")
 	}
-	quota := os.Getenv("QUOTA")
+	quota := os.Getenv("APP_QUOTA")
 	if quota == "" {
 		panic("QUOTA is required")
 	}
