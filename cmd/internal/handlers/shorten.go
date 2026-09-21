@@ -11,26 +11,13 @@ import (
 	"github.com/Rajit-Dutta/go-redis-url-shortener/cmd/internal/config"
 	"github.com/Rajit-Dutta/go-redis-url-shortener/cmd/internal/db"
 	"github.com/Rajit-Dutta/go-redis-url-shortener/cmd/internal/httpx"
+	"github.com/Rajit-Dutta/go-redis-url-shortener/cmd/internal/model"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
 
-type request struct {
-	URL         string        `json:"url"`
-	CustomShort string        `json:"short"`
-	Expiry      time.Duration `json:"expiry"`
-}
-
-type response struct {
-	URL             string        `json:"url"`
-	CustomShort     string        `json:"short"`
-	Expiry          time.Duration `json:"expiry"`
-	XRateRemaining  int           `json:"rate_limit"`
-	XRateLimitReset time.Duration `json:"rate_limit_rest"`
-}
-
 func ShortenURL(w http.ResponseWriter, r *http.Request) {
-	var req request
+	var req model.Request
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "Something went wrong while reading body", "invalid_body")
 		return
@@ -99,7 +86,7 @@ func ShortenURL(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "Unable to connect to server", "cannot_connect_to_server")
 	}
 
-	resp := response{
+	resp := model.Response{
 		URL:             req.URL,
 		CustomShort:     "",
 		Expiry:          req.Expiry,
