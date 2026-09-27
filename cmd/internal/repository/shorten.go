@@ -9,6 +9,8 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+var ErrCustomShortExists = errors.New("custom short URL is already in use")
+
 func IsExistCustomShortURL(urlID string) error {
 
 	conn := db.CreateClient(0)
@@ -23,7 +25,7 @@ func IsExistCustomShortURL(urlID string) error {
 	if err != nil {
 		return err
 	}
-	return errors.New("custom short URL is already in use")
+	return ErrCustomShortExists
 
 }
 

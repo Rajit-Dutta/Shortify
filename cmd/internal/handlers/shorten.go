@@ -2,18 +2,15 @@ package handlers
 
 import (
 	"encoding/json"
-	"net"
+	"errors"
 	"net/http"
-	"strconv"
 	"time"
 
-	"github.com/Rajit-Dutta/go-redis-url-shortener/cmd/api/helpers"
-	"github.com/Rajit-Dutta/go-redis-url-shortener/cmd/internal/config"
-	"github.com/Rajit-Dutta/go-redis-url-shortener/cmd/internal/db"
 	"github.com/Rajit-Dutta/go-redis-url-shortener/cmd/internal/httpx"
+	"github.com/Rajit-Dutta/go-redis-url-shortener/cmd/internal/middleware"
 	"github.com/Rajit-Dutta/go-redis-url-shortener/cmd/internal/model"
-	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
+	"github.com/Rajit-Dutta/go-redis-url-shortener/cmd/internal/repository"
+	"github.com/Rajit-Dutta/go-redis-url-shortener/cmd/internal/service"
 )
 
 func ShortenURL(w http.ResponseWriter, r *http.Request) {
@@ -23,86 +20,23 @@ func ShortenURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//implementation of rate limiting
-	r2 := db.CreateClient(1)
-	defer r2.Close()
-
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	result, err := service.PublishURL(req, r.Context())
 	if err != nil {
-		host = r.RemoteAddr
-	}
-
-	val, err := r2.Get(db.Ctx, host).Result()
-	if err == redis.Nil {
-		err = r2.Set(db.Ctx, host, config.MustLoad().Quota, time.Second*60*30).Err()
-		if err != nil {
-			httpx.Error(w, http.StatusInternalServerError, "Something went wrong during IP fetching", "unsuccesful_fetch")
+		if errors.Is(err, repository.ErrCustomShortExists) {
+			httpx.Error(w, http.StatusConflict, err.Error(), "url_short_in_use")
 			return
 		}
-	} else {
-		valInt, err := strconv.Atoi(val)
-		if err != nil {
-			httpx.Error(w, http.StatusInternalServerError, "Something went wrong during host conversion to INT", "unsuccesful_conversion")
-			return
-		}
-		if valInt == 0 {
-			ttl, _ := r2.TTL(db.Ctx, host).Result()
-			httpx.RateLimitRestError(w, http.StatusBadRequest, "Rate limit exceeded", "rate_limit_exceeded", time.Duration(ttl.Seconds()))
-			return
-		}
-	}
-
-	//check if actual URL
-
-	if !helpers.RemoveDomainErrors(req.URL) {
-		httpx.Error(w, http.StatusBadRequest, "URL is not valid", "invalid_URL")
+		httpx.Error(w, http.StatusBadRequest, err.Error(), "invalid_url")
 		return
-	}
-
-	req.URL = helpers.EnforceHTTP(req.URL)
-
-	var id string
-
-	if req.CustomShort == "" {
-		id = uuid.New().String()[:6]
-	} else {
-		id = req.CustomShort
-	}
-
-	if req.Expiry == 0 {
-		req.Expiry = 24
-	}
-
-	r3 := db.CreateClient(0)
-	defer r3.Close()
-
-	val, _ = r3.Get(db.Ctx, id).Result()
-	if val != "" {
-		httpx.Error(w, http.StatusBadRequest, "URL custom short is already in use", "url_short_in_use")
-		return
-	}
-
-	if err = r3.Set(db.Ctx, id, req.URL, req.Expiry*3600*time.Second).Err(); err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "Unable to connect to server", "cannot_connect_to_server")
 	}
 
 	resp := model.Response{
-		URL:             req.URL,
-		CustomShort:     "",
-		Expiry:          req.Expiry,
-		XRateRemaining:  10,
-		XRateLimitReset: 30,
+		URL:             result.OriginalURL,
+		CustomShort:     result.ShortenedURL,
+		Expiry:          result.Expiry,
+		XRateRemaining:  int(middleware.RateLimitRemaining(r.Context())),
+		XRateLimitReset: time.Duration(middleware.RateLimitReset(r.Context())),
 	}
-
-	r2.Decr(db.Ctx, host)
-
-	val, _ = r2.Get(db.Ctx, host).Result()
-	resp.XRateRemaining, _ = strconv.Atoi(val)
-
-	ttl, _ := r2.TTL(db.Ctx, host).Result()
-	resp.XRateLimitReset = ttl / time.Nanosecond / time.Minute
-
-	resp.CustomShort = config.MustLoad().Domain + "/" + id
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)

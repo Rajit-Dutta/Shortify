@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"strconv"
@@ -22,13 +23,16 @@ func RateLimit(next http.Handler) http.HandlerFunc {
 			host = r.RemoteAddr
 		}
 
-		val, err := conn.Get(db.Ctx, host).Result()
+		val, err := conn.Get(r.Context(), host).Result()
 		if err == redis.Nil {
 			err = conn.Set(db.Ctx, host, config.MustLoad().Quota, time.Second*60*30).Err()
 			if err != nil {
-				httpx.Error(w, http.StatusInternalServerError, "Something went wrong during IP fetching", "unsuccesful_fetch")
+				httpx.Error(w, http.StatusInternalServerError, "Something went wrong during setting quota for IP", "unsuccesful_fetch")
 				return
 			}
+		} else if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "Something went wrong during IP fetching", "unsuccesful_fetch")
+			return
 		} else {
 			valInt, err := strconv.Atoi(val)
 			if err != nil {
@@ -36,10 +40,41 @@ func RateLimit(next http.Handler) http.HandlerFunc {
 				return
 			}
 			if valInt == 0 {
-				ttl, _ := conn.TTL(db.Ctx, host).Result()
-				httpx.RateLimitRestError(w, http.StatusBadRequest, "Rate limit exceeded", "rate_limit_exceeded", time.Duration(ttl.Seconds()))
+				ttl, _ := conn.TTL(r.Context(), host).Result()
+				httpx.RateLimitRestError(w, http.StatusTooManyRequests, "Rate limit exceeded", "rate_limit_exceeded", time.Duration(ttl.Seconds()))
 				return
 			}
 		}
+		remaining, err := conn.Decr(r.Context(), host).Result()
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "Unable to update rate limit", "rate_limit_error")
+			return
+		}
+		ttl, _ := conn.TTL(r.Context(), host).Result()
+		if err != nil {
+			httpx.Error(w, http.StatusInternalServerError, "Unable to read rate limit TTL", "rate_limit_error")
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), "rate_limit", int(remaining))
+		ctx = context.WithValue(ctx, "rate_limit_rest", int64(ttl.Seconds()))
+
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func RateLimitRemaining(ctx context.Context) int {
+	value, ok := ctx.Value("rate_limit").(int)
+	if !ok {
+		return 0
+	}
+	return value
+}
+
+func RateLimitReset(ctx context.Context) int64 {
+	value, ok := ctx.Value("rate_limit_rest").(int64)
+	if !ok {
+		return 0
+	}
+	return value
 }

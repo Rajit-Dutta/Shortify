@@ -1,17 +1,17 @@
 package service
 
 import (
+	"context"
 	"errors"
 
 	"github.com/Rajit-Dutta/go-redis-url-shortener/cmd/api/helpers"
 	"github.com/Rajit-Dutta/go-redis-url-shortener/cmd/internal/config"
-	"github.com/Rajit-Dutta/go-redis-url-shortener/cmd/internal/db"
 	"github.com/Rajit-Dutta/go-redis-url-shortener/cmd/internal/model"
 	"github.com/Rajit-Dutta/go-redis-url-shortener/cmd/internal/repository"
 	"github.com/Rajit-Dutta/go-redis-url-shortener/cmd/internal/utils"
 )
 
-func PublishURL(req model.Request) (model.ToBePublishedURL, error) {
+func PublishURL(req model.Request, ctx context.Context) (model.ToBePublishedURL, error) {
 	var urlId string
 
 	//Check whether URL contains domain errors
@@ -48,7 +48,7 @@ func PublishURL(req model.Request) (model.ToBePublishedURL, error) {
 	//Create shortened URL
 	shortenedURL := config.MustLoad().Domain + "/" + urlId
 	//Set value URL with key id
-	err := repository.SetShortenedURL(db.Ctx, urlId, req.URL, req.Expiry)
+	err := repository.SetShortenedURL(ctx, urlId, req.URL, req.Expiry)
 	if err != nil {
 		return model.ToBePublishedURL{}, err
 	}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/Rajit-Dutta/go-redis-url-shortener/cmd/internal/config"
 	"github.com/Rajit-Dutta/go-redis-url-shortener/cmd/internal/handlers"
+	"github.com/Rajit-Dutta/go-redis-url-shortener/cmd/internal/middleware"
 )
 
 func main() {
@@ -19,7 +20,8 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /:url", handlers.ResolveURL)
-	mux.HandleFunc("POST /api/v1", handlers.ShortenURL)
+	shortenHandler := http.HandlerFunc(handlers.ShortenURL)
+	http.Handle("/api/shorten", middleware.RateLimit(shortenHandler))
 
 	//Setting up the server
 	server := http.Server{
