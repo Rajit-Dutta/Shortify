@@ -14,7 +14,9 @@ import (
 )
 
 func RateLimit(next http.Handler) http.HandlerFunc {
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
 		conn := db.CreateClient(1)
 		defer conn.Close()
 
@@ -25,32 +27,38 @@ func RateLimit(next http.Handler) http.HandlerFunc {
 
 		val, err := conn.Get(r.Context(), host).Result()
 		if err == redis.Nil {
-			err = conn.Set(db.Ctx, host, config.MustLoad().Quota, time.Second*60*30).Err()
+			err = conn.Set(r.Context(), host, config.MustLoad().Quota, time.Second*60*30).Err()
 			if err != nil {
-				httpx.Error(w, http.StatusInternalServerError, "Something went wrong during setting quota for IP", "unsuccesful_fetch")
+				httpx.Error(w, http.StatusInternalServerError, "Something went wrong during setting quota for IP", "unsuccessful_fetch")
 				return
 			}
 		} else if err != nil {
-			httpx.Error(w, http.StatusInternalServerError, "Something went wrong during IP fetching", "unsuccesful_fetch")
+			httpx.Error(w, http.StatusInternalServerError, "Something went wrong during IP fetching", "unsuccessful_fetch")
 			return
 		} else {
 			valInt, err := strconv.Atoi(val)
 			if err != nil {
-				httpx.Error(w, http.StatusInternalServerError, "Something went wrong during host conversion to INT", "unsuccesful_conversion")
+				httpx.Error(w, http.StatusInternalServerError, "Something went wrong during host conversion to INT", "unsuccessful_conversion")
 				return
 			}
 			if valInt == 0 {
-				ttl, _ := conn.TTL(r.Context(), host).Result()
+				ttl, err := conn.TTL(r.Context(), host).Result()
+				if err != nil {
+					httpx.Error(w, http.StatusInternalServerError, "Unable to read rate limit TTL", "rate_limit_error")
+					return
+				}
 				httpx.RateLimitRestError(w, http.StatusTooManyRequests, "Rate limit exceeded", "rate_limit_exceeded", time.Duration(ttl.Seconds()))
 				return
 			}
 		}
+
 		remaining, err := conn.Decr(r.Context(), host).Result()
 		if err != nil {
 			httpx.Error(w, http.StatusInternalServerError, "Unable to update rate limit", "rate_limit_error")
 			return
 		}
-		ttl, _ := conn.TTL(r.Context(), host).Result()
+
+		ttl, err := conn.TTL(r.Context(), host).Result()
 		if err != nil {
 			httpx.Error(w, http.StatusInternalServerError, "Unable to read rate limit TTL", "rate_limit_error")
 			return

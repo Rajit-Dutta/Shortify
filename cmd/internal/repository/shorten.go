@@ -11,12 +11,12 @@ import (
 
 var ErrCustomShortExists = errors.New("custom short URL is already in use")
 
-func IsExistCustomShortURL(urlID string) error {
+func IsExistCustomShortURL(ctx context.Context, urlID string) error {
 
 	conn := db.CreateClient(0)
 	defer conn.Close()
 
-	_, err := conn.Get(db.Ctx, urlID).Result()
+	_, err := conn.Get(ctx, urlID).Result()
 
 	if err == redis.Nil {
 		return nil

@@ -13,7 +13,7 @@ func ResolveURL(w http.ResponseWriter, r *http.Request) {
 	rd := db.CreateClient(0)
 	defer rd.Close()
 
-	value, err := rd.Get(db.Ctx, url).Result()
+	value, err := rd.Get(r.Context(), url).Result()
 	if err == redis.Nil {
 		httpx.Error(w, http.StatusNotFound, "shortened URL not found", "not_found")
 	} else if err != nil {
@@ -23,7 +23,7 @@ func ResolveURL(w http.ResponseWriter, r *http.Request) {
 	rInr := db.CreateClient(1)
 	defer rInr.Close()
 
-	_ = rInr.Incr(db.Ctx, "counter")
+	_ = rInr.Incr(r.Context(), "counter")
 
 	http.Redirect(w, r, value, http.StatusMovedPermanently)
 }

@@ -32,14 +32,14 @@ func PublishURL(req model.Request, ctx context.Context) (model.ToBePublishedURL,
 	//Generate custom short
 	if req.CustomShort == "" {
 		urlId = utils.GenerateCustomShort(req.URL)
-		err := repository.IsExistCustomShortURL(urlId)
+		err := repository.IsExistCustomShortURL(ctx, urlId)
 		if err != nil {
 			return model.ToBePublishedURL{}, err
 		}
 	} else {
 		urlId = req.CustomShort
 		//Check whether custom short already exists
-		err := repository.IsExistCustomShortURL(urlId)
+		err := repository.IsExistCustomShortURL(ctx, urlId)
 		if err != nil {
 			return model.ToBePublishedURL{}, err
 		}
