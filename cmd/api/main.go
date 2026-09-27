@@ -21,7 +21,7 @@ func main() {
 
 	mux.HandleFunc("GET /:url", handlers.ResolveURL)
 	shortenHandler := http.HandlerFunc(handlers.ShortenURL)
-	http.Handle("/api/shorten", middleware.RateLimit(shortenHandler))
+	mux.Handle("POST /api/shorten", middleware.RateLimit(shortenHandler))
 
 	//Setting up the server
 	server := http.Server{
